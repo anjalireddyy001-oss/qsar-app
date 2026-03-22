@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>QSAR Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0b0e14; --surface: #141820; --surface2: #1c2230;
+  --border: #2a3348; --accent: #00e5a0; --accent2: #4d9fff;
+  --warn: #ffb347; --text: #e8edf5; --muted: #6b7a99;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; min-height: 100vh; }
+header { border-bottom: 1px solid var(--border); padding: 18px 40px; display: flex; align-items: center; gap: 16px; background: var(--surface); }
+.logo-mark { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #00e5a0, #4d9fff); display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 14px; font-weight: 500; color: #000; }
+header h1 { font-size: 18px; font-weight: 500; }
+header span { font-size: 12px; color: var(--muted); }
+.badge { margin-left: auto; font-family: monospace; font-size: 11px; background: rgba(0,229,160,0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.25); border-radius: 4px; padding: 3px 8px; }
+.steps { display: flex; align-items: center; padding: 20px 40px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.step { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.step.active { color: var(--text); }
+.step.done { color: var(--accent); }
+.step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); font-family: monospace; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+.step.active .step-num { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+.step.done .step-num { background: var(--accent); border-color: var(--accent); color: #000; }
+.step-line { flex: 1; height: 1px; background: var(--border); margin: 0 10px; min-width: 20px; }
+main { max-width: 1100px; margin: 0 auto; padding: 40px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px; margin-bottom: 24px; }
+.panel-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.panel-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid rgba(42,51,72,0.5); font-family: monospace; font-size: 12px; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+.smiles-cell { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent2); }
+.activity-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; color: var(--text); font-family: monospace; font-size: 12px; width: 90px; }
+.activity-input:focus { outline: none; border-color: var(--accent2); }
+.tag { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-family: monospace; }
+.tag-ok { background: rgba(0,229,160,0.12); color: var(--accent); }
+.tag-err { background: rgba(255,100,100,0.12); color: #ff6b6b; }
+.btn { padding: 10px 22px; border-radius: 7px; border: none; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 500; transition: opacity .15s; }
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: var(--accent); color: #000; }
+.btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-row { display: flex; gap: 10px; margin-top: 24px; }
+.results-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+.stat-value { font-family: monospace; font-size: 28px; font-weight: 500; }
+.stat-value.good { color: var(--accent); }
+.stat-value.ok { color: var(--warn); }
+.stat-value.bad { color: #ff6b6b; }
+.equation-box { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--accent2); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; font-family: monospace; font-size: 13px; line-height: 1.6; word-break: break-all; }
+.chart-wrap { height: 280px; position: relative; }
+.info-box { background: rgba(0,229,160,0.08); border: 1px solid rgba(0,229,160,0.2); border-radius: 8px; padding: 16px 20px; font-size: 13px; color: var(--accent); margin-bottom: 8px; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-mark">QS</div>
+  <div><h1>QSAR Analyzer <span>v1.0</span></h1></div>
+  <div class="badge">RDKit · MLR · Python</div>
+</header>
+<div class="steps">
+  <div class="step" id="step1"><div class="step-num">1</div> Load Compounds</div>
+  <div class="step-line"></div>
+  <div class="step" id="step2"><div class="step-num">2</div> Review</div>
+  <div class="step-line"></div>
+  <div class="step" id="step3"><div class="step-num">3</div> Activity</div>
+  <div class="step-line"></div>
+  <div class="step" id="step4"><div class="step-num">4</div> QSAR Results</div>
+</div>
+<main>
+  <div id="section-loading" class="panel">
+    <div class="panel-title">Loading compounds from your paper</div>
+    <div class="info-box" id="load-status">Connecting to server...</div>
+  </div>
+  <div id="section-compounds" class="panel hidden">
+    <div class="panel-title">Compounds from your paper — SA-1 to SA-12 and BM212</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+      All activity values are loaded from Table 3 of your paper. You can edit any value if needed.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Name</th><th>SMILES</th><th>MW</th><th>LogP</th>
+            <th>TPSA</th><th>HBD</th><th>HBA</th><th>Rings</th>
+            <th style="color:var(--warn)">Activity</th><th>Unit</th>
+          </tr>
+        </thead>
+        <tbody id="compound-tbody"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="run-qsar-btn" onclick="runQSAR()">Run QSAR Analysis</button>
+    </div>
+  </div>
+  <div id="section-results" class="panel hidden">
+    <div class="panel-title">QSAR Results</div>
+    <div class="results-grid">
+      <div class="stat-card">
+        <div class="stat-label">Training R²</div>
+        <div class="stat-value" id="r2-val">—</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">Fit quality</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">LOO Q²</div>
+        <div class="stat-value" id="q2-val">—</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">Predictive power</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Descriptors used</div>
+        <div class="stat-value" id="desc-count" style="font-size:20px;">—</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="desc-names"></div>
+      </div>
+    </div>
+    <div class="panel-title">Regression equation</div>
+    <div class="equation-box" id="equation-box">—</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px;">
+      <div>
+        <div class="panel-title">Predicted vs Actual</div>
+        <div class="chart-wrap"><canvas id="scatter-chart"></canvas></div>
+      </div>
+      <div>
+        <div class="panel-title">Residuals</div>
+        <div class="chart-wrap"><canvas id="residual-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="panel-title" style="margin-top:24px;">Compound predictions</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Compound</th><th>Actual</th><th>Predicted</th><th>Residual</th></tr></thead>
+        <tbody id="pred-tbody"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="downloadCSV()">Download CSV</button>
+      <button class="btn btn-secondary" onclick="location.reload()">Start over</button>
+    </div>
+  </div>
+</main>
+<script>
+const API = 'http://localhost:5000/api';
+let compounds = [];
+let qsarResult = null;
+let scatterChart = null, residualChart = null;
+
+window.onload = () => loadPaperCompounds();
+
+async function loadPaperCompounds() {
+  setStep(1);
+  try {
+    const res = await fetch(API + '/load_paper');
+    const data = await res.json();
+    compounds = data.compounds;
+    document.getElementById('load-status').textContent = 'Loaded ' + compounds.length + ' compounds from your paper with RDKit descriptors and activity values!';
+    renderTable();
+    document.getElementById('section-compounds').classList.remove('hidden');
+    setStep(3);
+  } catch(err) {
+    document.getElementById('load-status').textContent = 'Error: Make sure the server is running. Restart with: python app.py';
+    document.getElementById('load-status').style.color = '#ff6b6b';
+  }
+}
+
+function renderTable() {
+  const tbody = document.getElementById('compound-tbody');
+  tbody.innerHTML = '';
+  compounds.forEach((c, i) => {
+    const d = c.descriptors || {};
+    tbody.innerHTML += `<tr>
+      <td>${c.id}</td>
+      <td style="color:var(--accent)">${c.name}</td>
+      <td class="smiles-cell" title="${c.smiles}">${c.smiles}</td>
+      <td>${d.MolWt??'—'}</td><td>${d.MolLogP??'—'}</td><td>${d.TPSA??'—'}</td>
+      <td>${d.NumHDonors??'—'}</td><td>${d.NumHAcceptors??'—'}</td><td>${d.RingCount??'—'}</td>
+      <td><input class="activity-input" type="number" step="0.001" value="${c.activity??''}"
+          onchange="compounds[${i}].activity=parseFloat(this.value)||null"/></td>
+      <td style="font-size:11px;color:var(--muted)">${c.activity_unit}</td>
+    </tr>`;
+  });
+}
+
+async function runQSAR() {
+  const ready = compounds.filter(c => c.activity !== null && c.descriptors);
+  if (ready.length < 3) { alert('Need at least 3 compounds with activity values.'); return; }
+  document.getElementById('run-qsar-btn').disabled = true;
+  document.getElementById('run-qsar-btn').textContent = 'Analyzing...';
+  try {
+    const res = await fetch(API + '/qsar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({compounds}) });
+    qsarResult = await res.json();
+    if (qsarResult.error) { alert(qsarResult.error); return; }
+    showResults(qsarResult);
+    setStep(4);
+  } finally {
+    document.getElementById('run-qsar-btn').disabled = false;
+    document.getElementById('run-qsar-btn').textContent = 'Run QSAR Analysis';
+  }
+}
+
+function showResults(r) {
+  document.getElementById('section-results').classList.remove('hidden');
+  const rc = r.r2>=0.8?'good':r.r2>=0.6?'ok':'bad';
+  const qc = r.q2>=0.6?'good':r.q2>=0.4?'ok':'bad';
+  document.getElementById('r2-val').textContent = r.r2;
+  document.getElementById('r2-val').className = 'stat-value ' + rc;
+  document.getElementById('q2-val').textContent = r.q2;
+  document.getElementById('q2-val').className = 'stat-value ' + qc;
+  document.getElementById('desc-count').textContent = r.descriptors_used.length;
+  document.getElementById('desc-names').textContent = r.descriptors_used.join(', ');
+  document.getElementById('equation-box').textContent = r.equation;
+  document.getElementById('pred-tbody').innerHTML = r.predictions.map(p=>`
+    <tr><td>${p.name}</td><td>${p.actual}</td><td>${p.predicted}</td>
+    <td style="color:${Math.abs(p.residual)>0.05?'#ff6b6b':'var(--accent)'}">${p.residual}</td></tr>`).join('');
+  drawCharts(r);
+  document.getElementById('section-results').scrollIntoView({behavior:'smooth'});
+}
+
+function drawCharts(r) {
+  const actual = r.predictions.map(p=>p.actual);
+  const predicted = r.predictions.map(p=>p.predicted);
+  const names = r.predictions.map(p=>p.name);
+  if (scatterChart) scatterChart.destroy();
+  const minV = Math.min(...actual,...predicted)-0.05;
+  const maxV = Math.max(...actual,...predicted)+0.05;
+  scatterChart = new Chart(document.getElementById('scatter-chart'), {
+    type:'scatter',
+    data:{ datasets:[
+      { label:'Compounds', data:actual.map((a,i)=>({x:a,y:predicted[i],label:names[i]})), backgroundColor:'#00e5a0', pointRadius:7 },
+      { label:'Ideal', data:[{x:minV,y:minV},{x:maxV,y:maxV}], type:'line', borderColor:'rgba(255,255,255,0.2)', borderDash:[4,4], pointRadius:0, fill:false }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>ctx.raw.label+` (${ctx.raw.x}, ${ctx.raw.y})`}}},
+      scales:{ x:{title:{display:true,text:'Actual',color:'#6b7a99'},ticks:{color:'#6b7a99'},grid:{color:'rgba(42,51,72,0.5)'}},
+               y:{title:{display:true,text:'Predicted',color:'#6b7a99'},ticks:{color:'#6b7a99'},grid:{color:'rgba(42,51,72,0.5)'}} }}
+  });
+  if (residualChart) residualChart.destroy();
+  residualChart = new Chart(document.getElementById('residual-chart'), {
+    type:'bar',
+    data:{ labels:names, datasets:[{ label:'Residual', data:r.predictions.map(p=>p.residual),
+      backgroundColor:r.predictions.map(p=>Math.abs(p.residual)>0.05?'#ff6b6b':'#00e5a0'), borderRadius:4 }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:'#6b7a99',maxRotation:45},grid:{color:'rgba(42,51,72,0.5)'}},
+               y:{ticks:{color:'#6b7a99'},grid:{color:'rgba(42,51,72,0.5)'},title:{display:true,text:'Residual',color:'#6b7a99'}} }}
+  });
+}
+
+function downloadCSV() {
+  if (!qsarResult) return;
+  const rows = [['Compound','Actual','Predicted','Residual'],...qsarResult.predictions.map(p=>[p.name,p.actual,p.predicted,p.residual])];
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(rows.map(r=>r.join(',')).join('\n'));
+  a.download = 'qsar_results.csv'; a.click();
+}
+
+function setStep(n) {
+  for (let i=1;i<=4;i++) {
+    const el = document.getElementById('step'+i);
+    el.className = 'step'+(i<n?' done':i===n?' active':'');
+  }
+}
+</script>
+</body>
+</html>
